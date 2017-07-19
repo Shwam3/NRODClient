@@ -144,7 +144,7 @@ public class TDHandler implements NRODListener
 
                     case "SF_MSG":
                     {
-                        char[] data = paddedBinaryString(Integer.parseInt(indvMsg.getString("data"), 16)).toCharArray();
+                        char[] data = zfill(Integer.parseInt(indvMsg.getString("data"), 16), 8).toCharArray();
 
                         for (int i = 0; i < data.length; i++)
                         {
@@ -170,54 +170,44 @@ public class TDHandler implements NRODListener
                     case "SG_MSG":
                     case "SH_MSG":
                     {
-                        String addrStart = msgAddr.substring(0, 3);
-                        String addrEnd = msgAddr.substring(3);
-                        String dataStr = indvMsg.getString("data");
-
-                        int data[] = {
-                            Integer.parseInt(dataStr.substring(0, 2), 16),
-                            Integer.parseInt(dataStr.substring(2, 4), 16),
-                            Integer.parseInt(dataStr.substring(4, 6), 16),
-                            Integer.parseInt(dataStr.substring(6, 8), 16)
-                        };
-
-                        String[] addresses = {
-                            msgAddr,
-                            addrStart + (addrEnd.equals("0") ? "1" : addrEnd.equals("4") ? "5" : addrEnd.equals("8") ? "9" : "D"),
-                            addrStart + (addrEnd.equals("0") ? "2" : addrEnd.equals("4") ? "6" : addrEnd.equals("8") ? "A" : "E"),
-                            addrStart + (addrEnd.equals("0") ? "3" : addrEnd.equals("4") ? "7" : addrEnd.equals("8") ? "B" : "F")
-                        };
-
-                        for (int i = 0; i < data.length; i++)
-                        {
-                            updateMap.put(addresses[i], Integer.toString(data[i]));
-                            DATA_MAP.put(addresses[i], Integer.toString(data[i]));
-                        }
+                        String binary = zfill(Long.parseLong(indvMsg.getString("data"), 16), 32);
+                        int start = Integer.parseInt(indvMsg.getString("address"), 16);
+                        for (int i = 0; i < 4; i++)
+                            for (int j = 0; j < 8; j++)
+                                updateMap.put(
+                                    String.format("%s%s:%s",
+                                            indvMsg.getString("area_id"),
+                                            zfill(Integer.toHexString(start+i), 2),
+                                            8 - j
+                                    ).toUpperCase(),
+                                    String.valueOf(binary.charAt(8*i+j))
+                                );
+                        DATA_MAP.putAll(updateMap);
                         break;
                     }
                 }
                 
-                if (NRODClient.guiData != null && NRODClient.guiData.isVisible())
-                    NRODClient.guiData.updateData();
-                
-                if (NRODClient.webSocket != null)
-                {
-                    JSONObject container = new JSONObject();
-                    JSONObject message = new JSONObject();
-                    message.put("type", "SEND_UPDATE");
-                    message.put("timestamp", System.currentTimeMillis());
-                    message.put("message", updateMap);
-                    container.put("Message", message);
-
-                    String messageStr = container.toString();
-                    for (WebSocket ws : NRODClient.webSocket.connections())
-                        if (ws != null && ws.isOpen())
-                            ws.send(messageStr);
-                }
             }
             catch (Exception e) { NRODClient.printThrowable(e, "TD"); }
         }
         
+        if (NRODClient.guiData != null && NRODClient.guiData.isVisible())
+            NRODClient.guiData.updateData();
+
+        if (NRODClient.webSocket != null)
+        {
+            JSONObject container = new JSONObject();
+            JSONObject message = new JSONObject();
+            message.put("type", "SEND_UPDATE");
+            message.put("timestamp", System.currentTimeMillis());
+            message.put("message", updateMap);
+            container.put("Message", message);
+
+            String messageStr = container.toString();
+            for (WebSocket ws : NRODClient.webSocket.connections())
+                if (ws != null && ws.isOpen())
+                    ws.send(messageStr);
+        }
         saveTDData(updateMap);
 
         lastMessageTime = System.currentTimeMillis();
@@ -225,9 +215,13 @@ public class TDHandler implements NRODListener
         StompConnectionHandler.ack(headers.get("ack"));
     }
 
-    public static String paddedBinaryString(int i)
+    public static String zfill(long l, int len)
     {
-        return String.format("%" + ((int) Math.ceil(Integer.toBinaryString(i).length() / 8f) * 8) + "s", Integer.toBinaryString(i)).replace(" ", "0");
+        return zfill(String.valueOf(l), len);
+    }
+    public static String zfill(String s, int len)
+    {
+        return String.format("%"+len+"s", s).replace(" ", "0");
     }
     
     public static void saveTDData(Map<String, String> mapToSave)

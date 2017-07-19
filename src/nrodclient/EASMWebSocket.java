@@ -103,7 +103,7 @@ public class EASMWebSocket extends WebSocketServer
         JSONObject message = new JSONObject();
         JSONObject content = new JSONObject();
         content.put("type", "SEND_ALL");
-        content.put("timestamp", Long.toString(System.currentTimeMillis()));
+        content.put("timestamp", System.currentTimeMillis());
         content.put("message", TDHandler.DATA_MAP);
         message.put("Message", content);
         String messageStr = message.toString();
