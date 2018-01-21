@@ -1,6 +1,5 @@
 package nrodclient.stomp.handlers;
 
-import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
@@ -635,18 +634,16 @@ public class RTPPMHandler implements NRODListener
                             baos.write(buff, 0, read);
                         
                         jsch.getIdentityRepository().add(baos.toByteArray());
-                        jsch.setKnownHosts(new ByteArrayInputStream(NRODClient.config.getString("SCP_Host").getBytes()));
+                        jsch.setKnownHosts(new ByteArrayInputStream(NRODClient.config.getString("SCP_Host_Key").getBytes()));
                     }
 
-                    Session session = jsch.getSession(NRODClient.config.getString("SCP_User"), "signalmaps.co.uk");
+                    Session session = jsch.getSession(NRODClient.config.getString("SCP_User"), NRODClient.config.getString("SCP_Host"));
                     session.connect();
-                    Channel channel = session.openChannel("sftp");
+                    ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
                     channel.connect();
-                    ChannelSftp channelSftp = (ChannelSftp) channel;
-
-                    channelSftp.put(new FileInputStream(htmlFile), NRODClient.config.getString("SCP_PPM_Path"));
-
-                    channelSftp.exit();
+                    
+                    channel.put(new FileInputStream(htmlFile), NRODClient.config.getString("SCP_PPM_Path"));
+                    channel.exit();
                     session.disconnect();
 
                     printRTPPM("Uploaded HTML", false);

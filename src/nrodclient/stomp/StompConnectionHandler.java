@@ -57,9 +57,9 @@ public class StompConnectionHandler
         String username = NRODClient.config.optString("NROD_Username", "");
         String password = NRODClient.config.optString("NROD_Password", "");
 
-        appID = username + "-NRODClient-v" + NRODClient.VERSION;
+        appID = username + "-NRODClient-" + NRODClient.config.optString("NROD_Instance_ID", "uid") + "-v" + NRODClient.VERSION;
 
-        if ((username != null && username.equals("")) || (password != null && password.equals("")))
+        if ("".equals(username) || "".equals(password))
         {
             printStomp("Error retreiving login details (usr: " + username + ", pwd: " + password + ")", true);
             return false;

@@ -30,12 +30,8 @@ import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import javax.swing.JOptionPane;
@@ -47,7 +43,6 @@ import nrodclient.stomp.handlers.RTPPMHandler;
 import nrodclient.stomp.handlers.TDHandler;
 import nrodclient.stomp.handlers.TSRHandler;
 import nrodclient.stomp.handlers.VSTPHandler;
-import org.java_websocket.WebSocket;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -70,10 +65,7 @@ public class NRODClient
     private static String       lastLogDate = "";
 
     private static TrayIcon sysTrayIcon = null;
-    
-    public static final int     port = 6323;
-    public static EASMWebSocket webSocket;
-    public static DataGui       guiData;
+    public  static DataGui  guiData;
 
     public static PrintStream stdOut = System.out;
     public static PrintStream stdErr = System.err;
@@ -104,33 +96,34 @@ public class NRODClient
         try
         {
             File TDDataDir = new File(NRODClient.EASM_STORAGE_DIR, "TDData");
-            for (File perAreaDir : TDDataDir.listFiles())
+            Arrays.stream(TDDataDir.listFiles()).forEach(f ->
             {
-                String area = perAreaDir.getName();
-                if (area.length() != 2 || !perAreaDir.isDirectory())
-                    continue;
-
-                for (File TDData : perAreaDir.listFiles())
+                if (f.isFile() && f.getName().endsWith(".td"))
                 {
-                    String dataID = TDData.getName().replace("-", ":");
-
-                    if (TDData.isDirectory() || !dataID.endsWith(".td") || dataID.length() != 7)
-                        continue;
-                    
-                    String data = "";
-                    try (BufferedReader br = new BufferedReader(new FileReader(TDData)))
+                    String dataStr = "";
+                    try(BufferedReader br = new BufferedReader(new FileReader(f)))
                     {
-                        data = br.readLine();
+                        dataStr = br.readLine();
                     }
-                    catch (IOException ex) { NRODClient.printThrowable(ex, "TD-Startup"); }
-
-                    TDHandler.DATA_MAP.put(area + dataID.substring(0, 4), data == null ? "" : data);
+                    catch (IOException ex) { printThrowable(ex, "TD-Startup"); }
+                    
+                    try
+                    {
+                        JSONObject data = new JSONObject(dataStr);
+                        data.keys().forEachRemaining(k -> TDHandler.DATA_MAP.putIfAbsent(k, data.getString(k)));
+                    }
+                    catch (JSONException e) { NRODClient.printErr("[TD-Startup] Malformed JSON in " + f.getName()); }
                 }
-            }
+            });
         }
         catch (Exception e) { NRODClient.printThrowable(e, "TD-Startup"); }
         
-        ensureServerOpen();
+        Runtime.getRuntime().addShutdownHook(new Thread(() ->
+        {
+            printOut("[Main] Stopping...");
+            
+            StompConnectionHandler.disconnect();
+        }, "NRODShutdown"));
         
         if (StompConnectionHandler.wrappedConnect())
             StompConnectionHandler.printStomp("Initialised and working", false);
@@ -152,32 +145,6 @@ public class NRODClient
                 catch (Exception e) { printErr("[Timer] Exception: " + e.toString()); }
             }
         }, 30000, 30000);
-        Timer FullUpdateMessenger = new Timer("FullUpdateMessenger");
-        FullUpdateMessenger.schedule(new TimerTask()
-        {
-            @Override
-            public void run()
-            {
-                try
-                {
-                    JSONObject message = new JSONObject();
-                    JSONObject content = new JSONObject();
-                    content.put("type", "SEND_ALL");
-                    content.put("timestamp", System.currentTimeMillis());
-                    content.put("message", TDHandler.DATA_MAP);
-                    message.put("Message", content);
-                    String messageStr = message.toString();
-
-                    ensureServerOpen();
-                    webSocket.connections().stream()
-                        .filter(c -> c != null)
-                        .filter(c -> c.isOpen())
-                        .forEach(c -> c.send(messageStr));
-                    printOut("[WebSocket] Updated all clients");
-                }
-                catch (Exception e) { printThrowable(e, "SendAll"); }
-            }
-        }, 500, 60000);
 
         updatePopupMenu();
     }
@@ -285,7 +252,6 @@ public class NRODClient
                 MenuItem itemOpenLogFolder = new MenuItem("Open Log File Folder");
                 MenuItem itemStatus        = new MenuItem("Status...");
                 MenuItem itemData          = new MenuItem("View Data...");
-                MenuItem itemInputData     = new MenuItem("Input Data...");
                 MenuItem itemRTPPMUpload   = new MenuItem("Upload RTPPM file");
                 MenuItem itemReconnect     = new MenuItem("Stomp Reconnect");
 
@@ -299,12 +265,7 @@ public class NRODClient
                 {
                     NRODClient.updatePopupMenu();
                     
-                    Collection<WebSocket> connsSSL = Collections.unmodifiableCollection(NRODClient.webSocket.connections());
                     StringBuilder statusMsg = new StringBuilder();
-                    statusMsg.append("WebSocket:");
-                    statusMsg.append("\n  Connections: ").append(connsSSL.size());
-                    statusMsg.append("\n    Secure: ").append(connsSSL.size());
-                    connsSSL.stream().filter(c -> c != null).forEachOrdered(c -> statusMsg.append("\n      ").append(c.getRemoteSocketAddress().getAddress().getHostAddress()).append(":").append(c.getRemoteSocketAddress().getPort()));
                     statusMsg.append("\nStomp:");
                     statusMsg.append("\n  Connection: ").append(StompConnectionHandler.isConnected() ? "Connected" : "Disconnected").append(StompConnectionHandler.isTimedOut() ? " (timed out)" : "");
                     statusMsg.append("\n  Timeout: ").append((System.currentTimeMillis() - StompConnectionHandler.lastMessageTimeGeneral) / 1000f).append("s");
@@ -320,35 +281,6 @@ public class NRODClient
                     JOptionPane.showMessageDialog(null, statusMsg.toString(), "NRODClient - Status", JOptionPane.INFORMATION_MESSAGE);
                 });
                 itemData.addActionListener(e -> NRODClient.guiData.setVisible(true));
-                itemInputData.addActionListener(e ->
-                {
-                    String input = JOptionPane.showInputDialog(null, "Please input the data in the format: 'key:value;key:value':", "Input Data", JOptionPane.QUESTION_MESSAGE);
-                    if (input != null)
-                    {
-                        Map<String, String> updateMap = new HashMap();
-                        String[] pairs = input.split(";");
-                        
-                        for (String pair : pairs)
-                            if (pair.length() >= 7)
-                                if (pair.charAt(6) == ':')
-                                    updateMap.put(pair.substring(0, 6), pair.substring(7));
-                            
-                        JSONObject container = new JSONObject();
-                        JSONObject message = new JSONObject();
-                        message.put("type", "SEND_UPDATE");
-                        message.put("timestamp", System.currentTimeMillis());
-                        message.put("message", updateMap);
-                        container.put("Message", message);
-                        TDHandler.DATA_MAP.putAll(updateMap);                        
-                        TDHandler.saveTDData(updateMap);
-
-                        String messageStr = container.toString();
-                        NRODClient.webSocket.connections().stream()
-                                .filter(c -> c != null)
-                                .filter(c -> c.isOpen())
-                                .forEach(c -> c.send(messageStr));
-                    }
-                });
                 itemRTPPMUpload.addActionListener((ActionEvent e) ->
                 {
                     RTPPMHandler.uploadHTML();
@@ -391,7 +323,6 @@ public class NRODClient
 
                 menu.add(itemStatus);
                 menu.add(itemData);
-                menu.add(itemInputData);
                 menu.add(itemRTPPMUpload);
                 menu.add(itemReconnect);
                 menu.add(menuSubscriptions);
@@ -424,39 +355,6 @@ public class NRODClient
         }
     }
 
-    private static void ensureServerOpen()
-    {
-        if (webSocket == null || webSocket.isClosed())
-        {
-            new Thread(() -> {
-                EASMWebSocket ews = new EASMWebSocket(port, true);
-                try
-                {
-                    webSocket = ews;
-                    webSocket.run();
-                }
-                catch (Exception e)
-                {
-                    printThrowable(e, "WebSocket");
-                }
-                finally
-                {
-                    EASMWebSocket.printWebSocket("WebSocket server runnable finished" + (ews.isClosed() ? "" : " unnexpectedly"), !ews.isClosed());
-                    
-                    if (ews == webSocket)
-                    {
-                        try
-                        {
-                            webSocket = null;
-                            ews.stop(0);
-                        }
-                        catch (Exception e) {}
-                    }
-                }
-            }).start();
-        }
-    }
-    
     public static void reloadConfig()
     {
         try (BufferedReader br = new BufferedReader(new FileReader(new File(EASM_STORAGE_DIR, "config.json"))))

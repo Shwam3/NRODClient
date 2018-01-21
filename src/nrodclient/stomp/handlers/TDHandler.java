@@ -15,16 +15,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import nrodclient.NRODClient;
 import nrodclient.stomp.NRODListener;
 import nrodclient.stomp.StompConnectionHandler;
-import org.java_websocket.WebSocket;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class TDHandler implements NRODListener
 {
-    private static PrintWriter logStream;
-    private static File        logFile;
-    private static String      lastLogDate = "";
-    private long               lastMessageTime = 0;
+    private static PrintWriter logOldStream;
+    private static File        logOldFile;
+    private static String      lastLogOldDate = "";
+    private static PrintWriter logNewStream;
+    private static File        logNewFile;
+    private static String      lastLogNewDate = "";
+    private        long        lastMessageTime = 0;
     
     private static List<String> areaFilters;
 
@@ -32,11 +34,18 @@ public class TDHandler implements NRODListener
     private TDHandler()
     {
         Date logDate = new Date(System.currentTimeMillis());
-        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
-        logFile.getParentFile().mkdirs();
-        lastLogDate = NRODClient.sdfDate.format(logDate);
+        logOldFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TDOld" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+        logOldFile.getParentFile().mkdirs();
+        lastLogOldDate = NRODClient.sdfDate.format(logDate);
 
-        try { logStream = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)), true); }
+        try { logOldStream = new PrintWriter(new BufferedWriter(new FileWriter(logOldFile, true)), true); }
+        catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+        
+        logNewFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+        logNewFile.getParentFile().mkdirs();
+        lastLogNewDate = NRODClient.sdfDate.format(logDate);
+
+        try { logNewStream = new PrintWriter(new BufferedWriter(new FileWriter(logNewFile, true)), true); }
         catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
         
         List<String> filter = new ArrayList<>();
@@ -77,137 +86,173 @@ public class TDHandler implements NRODListener
             JSONObject map = (JSONObject) mapObj;
             try
             {
-                String msgType = String.valueOf(map.keySet().toArray()[0]);
-                JSONObject indvMsg = map.getJSONObject(msgType);
-                if (!areaFilters.contains(indvMsg.getString("area_id")))
-                    continue;
-
-                String msgAddr = indvMsg.getString("area_id") + indvMsg.optString("address");
-
-                switch (msgType.toUpperCase())
+                // normally only one message per key
+                for (String msgType : map.keySet())
                 {
-                    case "CA_MSG":
+                    JSONObject indvMsg = map.getJSONObject(msgType);
+                    boolean isInFilter = !areaFilters.contains(indvMsg.getString("area_id"));
+
+                    String msgAddr = indvMsg.getString("area_id") + indvMsg.optString("address");
+
+                    switch (msgType.toUpperCase())
                     {
-                        if (!"".equals(DATA_MAP.put(indvMsg.getString("area_id") + indvMsg.getString("from"), "")));
-                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("from"), "");
-                            
-                        if (!indvMsg.getString("descr").equals(DATA_MAP.put(indvMsg.getString("area_id") + indvMsg.getString("to"), indvMsg.getString("descr"))));
-                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("to"), indvMsg.getString("descr"));
-
-                        printTD(String.format("Step %s from %s to %s",
-                                indvMsg.getString("descr"),
-                                indvMsg.getString("area_id") + indvMsg.getString("from"),
-                                indvMsg.getString("area_id") + indvMsg.getString("to")),
-                            false,
-                            Long.parseLong(indvMsg.getString("time")));
-                        break;
-                    }
-                    
-                    case "CB_MSG":
-                    {
-                        if (!"".equals(DATA_MAP.put(indvMsg.getString("area_id") + indvMsg.getString("from"), "")))
-                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("from"), "");
-
-                        printTD(String.format("Cancel %s from %s",
-                                indvMsg.getString("descr"),
-                                indvMsg.getString("area_id") + indvMsg.getString("from")),
-                            false,
-                            Long.parseLong(indvMsg.getString("time")));
-                        break;
-                    }
-                    
-                    case "CC_MSG":
-                    {
-                        if (!indvMsg.getString("descr").equals(DATA_MAP.put(indvMsg.getString("area_id") + indvMsg.getString("to"), indvMsg.getString("descr"))));
-                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("to"), indvMsg.getString("descr"));
-
-                        printTD(String.format("Interpose %s to %s",
-                                indvMsg.getString("descr"),
-                                indvMsg.getString("area_id") + indvMsg.getString("to")),
-                            false,
-                            Long.parseLong(indvMsg.getString("time")));
-                        break;
-                    }
-                    
-                    case "CT_MSG":
-                    {
-                        updateMap.put("XXHB" + indvMsg.getString("area_id"), indvMsg.getString("report_time"));
-                        DATA_MAP.put("XXHB" + indvMsg.getString("area_id"), indvMsg.getString("report_time"));
-
-                        printTD(String.format("Heartbeat from %s at time %s",
-                                indvMsg.getString("area_id"),
-                                indvMsg.getString("report_time")),
-                            false,
-                            Long.parseLong(indvMsg.getString("time")));
-                        break;
-                    }
-
-                    case "SF_MSG":
-                    {
-                        char[] data = zfill(Integer.parseInt(indvMsg.getString("data"), 16), 8).toCharArray();
-
-                        for (int i = 0; i < data.length; i++)
+                        case "CA_MSG":
                         {
-                            String address = msgAddr + ":" + Integer.toString(8 - i);
-                            String dataBit = String.valueOf(data[i]);
-                            
-                            if (!DATA_MAP.containsKey(address) || DATA_MAP.get(address) == null || !dataBit.equals(DATA_MAP.get(address)))
-                            {
-                                printTD(String.format("Change %s from %s to %s",
-                                        address,
-                                        DATA_MAP.getOrDefault(address, "0"),
-                                        dataBit),
+                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("from"), "");
+                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("to"), indvMsg.getString("descr"));
+
+                            if (isInFilter)
+                                printTD(String.format("Step %s from %s to %s",
+                                        indvMsg.getString("descr"),
+                                        indvMsg.getString("area_id") + indvMsg.getString("from"),
+                                        indvMsg.getString("area_id") + indvMsg.getString("to")),
                                     false,
                                     Long.parseLong(indvMsg.getString("time")));
-
-                                updateMap.put(address, dataBit);
-                            }
-                            DATA_MAP.put(address, dataBit);
+                            printTD(String.format("CA %s %s %s",
+                                    indvMsg.getString("descr"),
+                                    indvMsg.getString("area_id") + indvMsg.getString("from"),
+                                    indvMsg.getString("area_id") + indvMsg.getString("to")),
+                                true,
+                                Long.parseLong(indvMsg.getString("time")));
+                            break;
                         }
-                        break;
-                    }
 
-                    case "SG_MSG":
-                    case "SH_MSG":
-                    {
-                        String binary = zfill(Long.parseLong(indvMsg.getString("data"), 16), 32);
-                        int start = Integer.parseInt(indvMsg.getString("address"), 16);
-                        for (int i = 0; i < 4; i++)
-                            for (int j = 0; j < 8; j++)
-                                updateMap.put(
-                                    String.format("%s%s:%s",
-                                            indvMsg.getString("area_id"),
-                                            zfill(Integer.toHexString(start+i), 2),
-                                            8 - j
-                                    ).toUpperCase(),
-                                    String.valueOf(binary.charAt(8*i+j))
-                                );
-                        DATA_MAP.putAll(updateMap);
-                        break;
+                        case "CB_MSG":
+                        {
+                            updateMap.put(indvMsg.getString("area_id") + indvMsg.getString("from"), "");
+
+                            if (isInFilter)
+                                printTD(String.format("Cancel %s from %s",
+                                        indvMsg.getString("descr"),
+                                        indvMsg.getString("area_id") + indvMsg.getString("from")),
+                                    false,
+                                    Long.parseLong(indvMsg.getString("time")));
+                            printTD(String.format("CB %s %s",
+                                    indvMsg.getString("descr"),
+                                    indvMsg.getString("area_id") + indvMsg.getString("from")),
+                                true,
+                                Long.parseLong(indvMsg.getString("time")));
+                            break;
+                        }
+
+                        case "CC_MSG":
+                        {
+                            String to = indvMsg.getString("area_id") + indvMsg.getString("to");
+                            updateMap.put(to, indvMsg.getString("descr"));
+
+                            if (isInFilter)
+                                printTD(String.format("Interpose %s to %s",
+                                        indvMsg.getString("descr"),
+                                        to),
+                                    false,
+                                    Long.parseLong(indvMsg.getString("time")));
+                            printTD(String.format("CC %s %s%s",
+                                    indvMsg.getString("descr"),
+                                    indvMsg.getString("area_id") + indvMsg.getString("to"),
+                                    "".equals(DATA_MAP.getOrDefault(to, "")) ?
+                                        "" : (" " + DATA_MAP.get(to))),
+                                true,
+                                Long.parseLong(indvMsg.getString("time")));
+                            break;
+                        }
+
+                        case "CT_MSG":
+                        {
+                            updateMap.put("XXHB" + indvMsg.getString("area_id"), indvMsg.getString("report_time"));
+
+                            if (isInFilter)
+                                printTD(String.format("Heartbeat from %s at time %s",
+                                        indvMsg.getString("area_id"),
+                                        indvMsg.getString("report_time")),
+                                    false,
+                                    Long.parseLong(indvMsg.getString("time")));
+                            printTD(String.format("CT %s %s",
+                                    indvMsg.getString("area_id"),
+                                    indvMsg.getString("report_time")),
+                                true,
+                                Long.parseLong(indvMsg.getString("time")));
+                            break;
+                        }
+
+                        case "SF_MSG":
+                        {
+                            char[] data = zfill(Integer.toBinaryString(Integer.parseInt(indvMsg.getString("data"), 16)), 8).toCharArray();
+
+                            for (int i = 0; i < data.length; i++)
+                            {
+                                String address = msgAddr + ":" + Integer.toString(8 - i);
+                                String dataBit = String.valueOf(data[i]);
+
+                                if (!DATA_MAP.containsKey(address) || DATA_MAP.get(address) == null || !dataBit.equals(DATA_MAP.get(address)))
+                                {
+                                    if (isInFilter)
+                                        printTD(String.format("Change %s from %s to %s",
+                                                address,
+                                                DATA_MAP.getOrDefault(address, "0"),
+                                                dataBit),
+                                            false,
+                                            Long.parseLong(indvMsg.getString("time")));
+                                    printTD(String.format("SF %s %s %s",
+                                            address,
+                                            DATA_MAP.getOrDefault(address, "0"),
+                                            dataBit),
+                                        true,
+                                        Long.parseLong(indvMsg.getString("time")));
+
+                                    updateMap.put(address, dataBit);
+                                }
+                            }
+                            break;
+                        }
+
+                        case "SG_MSG":
+                        case "SH_MSG":
+                        {
+                            String binary = zfill(Long.toBinaryString(Long.parseLong(indvMsg.getString("data"), 16)), 32);
+                            int start = Integer.parseInt(indvMsg.getString("address"), 16);
+                            for (int i = 0; i < 4; i++)
+                                for (int j = 0; j < 8; j++)
+                                {
+                                    String id = String.format("%s%s:%s",
+                                                    indvMsg.getString("area_id"),
+                                                    zfill(Integer.toHexString(start+i), 2),
+                                                    8 - j
+                                                ).toUpperCase();
+                                    String dat = String.valueOf(binary.charAt(8 * i + j));
+                                    updateMap.put(id, dat);
+                                    if (!DATA_MAP.containsKey(id) || DATA_MAP.get(id) == null || dat.equals(DATA_MAP.get(id)))
+                                    {
+                                        if (isInFilter)
+                                            printTD(String.format("Change %s from %s to %s",
+                                                    id,
+                                                    DATA_MAP.getOrDefault(id, "0"),
+                                                    dat
+                                                ),
+                                                false,
+                                                Long.parseLong(indvMsg.getString("time")));
+                                        printTD(String.format("%s %s %s %s",
+                                                indvMsg.get("msg_type"),
+                                                id,
+                                                DATA_MAP.getOrDefault(id, "0"),
+                                                dat
+                                            ),
+                                            true,
+                                            Long.parseLong(indvMsg.getString("time")));
+                                    }
+                                }
+                            break;
+                        }
                     }
                 }
-                
             }
             catch (Exception e) { NRODClient.printThrowable(e, "TD"); }
         }
         
+        DATA_MAP.putAll(updateMap);
+        
         if (NRODClient.guiData != null && NRODClient.guiData.isVisible())
             NRODClient.guiData.updateData();
 
-        if (NRODClient.webSocket != null)
-        {
-            JSONObject container = new JSONObject();
-            JSONObject message = new JSONObject();
-            message.put("type", "SEND_UPDATE");
-            message.put("timestamp", System.currentTimeMillis());
-            message.put("message", updateMap);
-            container.put("Message", message);
-
-            String messageStr = container.toString();
-            for (WebSocket ws : NRODClient.webSocket.connections())
-                if (ws != null && ws.isOpen())
-                    ws.send(messageStr);
-        }
         saveTDData(updateMap);
 
         lastMessageTime = System.currentTimeMillis();
@@ -229,27 +274,52 @@ public class TDHandler implements NRODListener
         File TDDataDir = new File(NRODClient.EASM_STORAGE_DIR, "TDData");
         if (!mapToSave.isEmpty())
         {
-            mapToSave.keySet().stream().forEach(key ->
+            JSONObject cClObj = new JSONObject();
+            JSONObject sClObj = new JSONObject();
+            
+            mapToSave.keySet().forEach(key ->
             {
-                File DataFile = new File(TDDataDir, key.substring(0, 2) + File.separator + key.substring(2).replace(":", "-") + ".td");
-                
-                if (key.length() != 6)
-                    return;
-                
-                if (!DataFile.exists())
+                String area = key.substring(0, 2);
+                if (key.charAt(4) == ':')
                 {
-                    try
-                    {
-                        DataFile.getParentFile().mkdirs();
-                        DataFile.createNewFile();
-                    }
-                    catch (IOException ex) { NRODClient.printThrowable(ex, "TD"); }
+                    if (sClObj.has(area))
+                        sClObj.put(area, new JSONObject());
                 }
-                                
-                try (BufferedWriter bw = new BufferedWriter(new FileWriter(DataFile, false)))
+                else
                 {
-                    bw.write(mapToSave.getOrDefault(key, ""));
-                    bw.newLine();
+                    if (cClObj.has(area))
+                        cClObj.put(area, new JSONObject());
+                }
+            });
+            
+            DATA_MAP.forEach((k, v) ->
+            {
+                String area = k.substring(0, 2);
+                if (k.charAt(4) == ':')
+                {
+                    if (sClObj.has(area))
+                        sClObj.getJSONObject(area).put(k, v);
+                }
+                else
+                {
+                    if (cClObj.has(area))
+                        cClObj.getJSONObject(area).put(k, v);
+                }
+            });
+            
+            sClObj.keys().forEachRemaining(k ->
+            {
+                try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(TDDataDir, k+".s.td"))))
+                {
+                    sClObj.getJSONObject(k).write(bw);
+                }
+                catch (IOException ex) { NRODClient.printThrowable(ex, "TD"); }
+            });
+            cClObj.keys().forEachRemaining(k ->
+            {
+                try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(TDDataDir, k+".c.td"))))
+                {
+                    cClObj.getJSONObject(k).write(bw);
                 }
                 catch (IOException ex) { NRODClient.printThrowable(ex, "TD"); }
             });
@@ -259,42 +329,74 @@ public class TDHandler implements NRODListener
     public long getTimeout() { return System.currentTimeMillis() - lastMessageTime; }
     public long getTimeoutThreshold() { return 30000; }
 
-    private void printTD(String message, boolean toErr, long timestamp)
+    private void printTD(String message, boolean toNew, long timestamp)
     {
         if (NRODClient.verbose)
         {
-            if (toErr)
-                NRODClient.printErr("[TD] ".concat(message));
-            else
+            //if (toErr)
+            //    NRODClient.printErr("[TD] ".concat(message));
+            //else
                 NRODClient.printOut("[TD] ".concat(message));
         }
 
-        if (!lastLogDate.equals(NRODClient.sdfDate.format(new Date())))
+        if (toNew)
         {
-            logStream.close();
-
-            Date logDate = new Date();
-            lastLogDate = NRODClient.sdfDate.format(logDate);
-
-            logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
-            logFile.getParentFile().mkdirs();
-
-            try
+            if (!lastLogNewDate.equals(NRODClient.sdfDate.format(new Date())))
             {
-                logFile.createNewFile();
-                logStream = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)), true);
+                logNewStream.close();
+
+                Date logDate = new Date();
+                lastLogNewDate = NRODClient.sdfDate.format(logDate);
+
+                logNewFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TDOld" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+                logNewFile.getParentFile().mkdirs();
+
+                try
+                {
+                    logNewFile.createNewFile();
+                    logNewStream = new PrintWriter(new BufferedWriter(new FileWriter(logNewFile, true)), true);
+                }
+                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+
+                File fileReplaySave = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "ReplaySaves" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".json");
+                fileReplaySave.getParentFile().mkdirs();
+                try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileReplaySave)))
+                {
+                    bw.write(new JSONObject().put("TDData", DATA_MAP).toString());
+                }
+                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
             }
-            catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
-            
-            File fileReplaySave = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "ReplaySaves" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".json");
-            fileReplaySave.getParentFile().mkdirs();
-            try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileReplaySave)))
+            logNewStream.println("[".concat(NRODClient.sdfDateTime.format(new Date(timestamp))).concat("] ").concat(message));
+        }
+        else
+        {
+            if (!lastLogOldDate.equals(NRODClient.sdfDate.format(new Date())))
             {
-                bw.write(new JSONObject().put("TDData", DATA_MAP).toString());
+                logOldStream.close();
+
+                Date logDate = new Date();
+                lastLogOldDate = NRODClient.sdfDate.format(logDate);
+
+                logOldFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+                logOldFile.getParentFile().mkdirs();
+
+                try
+                {
+                    logOldFile.createNewFile();
+                    logOldStream = new PrintWriter(new BufferedWriter(new FileWriter(logOldFile, true)), true);
+                }
+                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+
+                File fileReplaySave = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "ReplaySaves" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".json");
+                fileReplaySave.getParentFile().mkdirs();
+                try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileReplaySave)))
+                {
+                    bw.write(new JSONObject().put("TDData", DATA_MAP).toString());
+                }
+                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
             }
-            catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+            logOldStream.println("[".concat(NRODClient.sdfDateTime.format(new Date(timestamp))).concat("] ").concat(message));
         }
 
-        logStream.println("[".concat(NRODClient.sdfDateTime.format(new Date(timestamp))).concat("] ").concat(message));
     }
 }
