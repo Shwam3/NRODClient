@@ -64,12 +64,11 @@ public class TSRHandler implements NRODListener
         }
         catch (IOException e) { NRODClient.printThrowable(e, "TSR"); }
 
-        // Scope limit
         {
             String json = messageJSON.substring(messageJSON.indexOf("\"TSRBatchMsg\":{"), messageJSON.length()-2);
             printTSR("[" + routeGroup + "] " + json, false);
             if (logFileWriter != null)
-                    logFileWriter.println("[".concat(NRODClient.sdfDateTime.format(new Date())).concat("] ").concat(json));
+                logFileWriter.println("[" + NRODClient.sdfDateTime.format(new Date()) + "] " + json);
 
             String header = String.format("[%s] Published: %s, WON Start: %s, WON End: %s, WON Name: %s, No of TSRs: %s",
                     routeGroup,
@@ -81,7 +80,7 @@ public class TSRHandler implements NRODListener
             );
             printTSR(header, false);
             if (logFileWriter != null)
-                logFileWriter.println("[".concat(NRODClient.sdfDateTime.format(new Date())).concat("] ").concat(header));
+                logFileWriter.println("[" + NRODClient.sdfDateTime.format(new Date()) + "] " + header);
         }
 
         for (Object tsrObj : TSRs)
@@ -96,9 +95,10 @@ public class TSRHandler implements NRODListener
                     !tsr.has("FreightSpeed") || !tsr.has("ValidFromDate") || !tsr.has("ValidToDate") ||
                     !tsr.has("Reason")       || !tsr.has("Requestor")     || !tsr.has("Comments"))
             {
-                printTSR("[" + routeGroup + "]   " + tsr.toString(), true);
+                String jsonStr = tsr.toString();
+                printTSR("[" + routeGroup + "]   " + jsonStr, true);
                 if (logFileWriter != null)
-                    logFileWriter.println("[".concat(NRODClient.sdfDateTime.format(new Date())).concat("] ").concat("[" + routeGroup + "]   " + tsr.toString()));
+                    logFileWriter.println("[" + NRODClient.sdfDateTime.format(new Date()) + "] " + "[" + routeGroup + "]   " + jsonStr);
             }
             else
             {
@@ -123,7 +123,7 @@ public class TSRHandler implements NRODListener
                 );
                 printTSR(tsrStr, false);
                 if (logFileWriter != null)
-                    logFileWriter.println("[".concat(NRODClient.sdfDateTime.format(new Date())).concat("] ").concat(tsrStr));
+                    logFileWriter.println("[" + NRODClient.sdfDateTime.format(new Date()) + "] " + tsrStr);
             }
         }
 

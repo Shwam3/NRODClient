@@ -19,16 +19,16 @@ public class MVTHandler implements NRODListener
     private static PrintWriter logStream;
     private static File        logFile;
     private static String      lastLogDate = "";
-    private long lastMessageTime = 0;
-    private final Map<String, String> da;
+    private        long        lastMessageTime = 0;
+    private final  Map<String, String> da;
 
     private static NRODListener instance = null;
     private MVTHandler()
     {
-        Date logDate = new Date(System.currentTimeMillis());
-        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "Movement" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+        String logDate = NRODClient.sdfDate.format(new Date());
+        lastLogDate = logDate;
+        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "Movement" + File.separator + logDate.replace("/", "-") + ".log");
         logFile.getParentFile().mkdirs();
-        lastLogDate = NRODClient.sdfDate.format(logDate);
         
         da = new HashMap<>();
         //<editor-fold defaultstate="collapsed" desc="da map">
@@ -390,7 +390,7 @@ public class MVTHandler implements NRODListener
                     break;
 
                 case "0004": // UID Train
-                case "0008": // Change Loaction
+                case "0008": // Change Location
                 default:     // Other
                     printMovement("Erronous message received (" + header.getString("msg_type") + ")", true);
                     break;
@@ -411,19 +411,19 @@ public class MVTHandler implements NRODListener
         if (NRODClient.verbose)
         {
             if (toErr)
-                NRODClient.printErr("[Movement] ".concat(message));
+                NRODClient.printErr("[Movement] " + message);
             else
-                NRODClient.printOut("[Movement] ".concat(message));
+                NRODClient.printOut("[Movement] " + message);
         }
 
-        if (!lastLogDate.equals(NRODClient.sdfDate.format(new Date())))
+        String newDate = NRODClient.sdfDate.format(new Date());
+        if (!lastLogDate.equals(newDate))
         {
             logStream.close();
 
-            Date logDate = new Date();
-            lastLogDate = NRODClient.sdfDate.format(logDate);
+            lastLogDate = newDate;
 
-            logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "Movement" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+            logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "Movement" + File.separator + newDate.replace("/", "-") + ".log");
             logFile.getParentFile().mkdirs();
 
             try
@@ -434,6 +434,6 @@ public class MVTHandler implements NRODListener
             catch (IOException e) { NRODClient.printThrowable(e, "Movement"); }
         }
 
-        logStream.println("[".concat(NRODClient.sdfDateTime.format(new Date())).concat("] ").concat(toErr ? "!!!> " : "").concat(message).concat(toErr ? " <!!!" : ""));
+        logStream.println("[" + NRODClient.sdfDateTime.format(new Date()) + "] " + (toErr ? "!!!> " : "") + message + (toErr ? " <!!!" : ""));
     }
 }

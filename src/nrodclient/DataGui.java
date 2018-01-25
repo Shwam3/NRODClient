@@ -122,7 +122,7 @@ public class DataGui extends JFrame
     @Override
     public String getTitle()
     {
-        return "EASM Web Server - Data" + (filterString.isEmpty() ? "" : " - " + filterString);
+        return "Data Viewer" + (filterString.isEmpty() ? "" : " - " + filterString);
     }
 
     public void updateData()

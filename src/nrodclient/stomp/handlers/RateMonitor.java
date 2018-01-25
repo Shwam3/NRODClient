@@ -23,16 +23,16 @@ public class RateMonitor implements NRODListener
     private static PrintWriter logStream;
     private static File        logFile;
     private static String      lastLogDate = "";
-    private final String[]     topics = {"/topic/TRAIN_MVT_ALL_TOC", "/topic/RTPPM_ALL", "/topic/VSTP_ALL", "/topic/TSR_ALL_ROUTE", "/topic/TD_ALL_SIG_AREA"};
+    private final  String[]    topics = {"/topic/TRAIN_MVT_ALL_TOC", "/topic/RTPPM_ALL", "/topic/VSTP_ALL", "/topic/TSR_ALL_ROUTE", "/topic/TD_ALL_SIG_AREA"};
 
     private static NRODListener instance = null;
     private RateMonitor()
     {
-        Date logDate = new Date();
-        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "RateMonitor" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".csv");
+        String logDate = NRODClient.sdfDate.format(new Date());
+        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "RateMonitor" + File.separator + logDate.replace("/", "-") + ".csv");
         boolean fileExisted = logFile.exists();
         logFile.getParentFile().mkdirs();
-        lastLogDate = NRODClient.sdfDate.format(logDate);
+        lastLogDate = logDate;
 
         try { logStream = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)), true); }
         catch (IOException e) { NRODClient.printThrowable(e, "RateMonitor"); }
@@ -57,14 +57,14 @@ public class RateMonitor implements NRODListener
 
         ScheduledFuture<?> sf = Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() ->
         {
-            Date logDateNew = new Date();
-            if (!NRODClient.sdfDate.format(logDateNew).equals(lastLogDate))
+            String newDate = NRODClient.sdfDate.format(new Date());
+            if (!lastLogDate.equals(newDate))
             {
                 logStream.close();
 
-                logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "RateMonitor" + File.separator + NRODClient.sdfDate.format(logDateNew).replace("/", "-") + ".csv");
+                lastLogDate = newDate;
+                logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "RateMonitor" + File.separator + newDate.replace("/", "-") + ".csv");
                 logFile.getParentFile().mkdirs();
-                lastLogDate = NRODClient.sdfDate.format(logDateNew);
 
                 try { logStream = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)), true); }
                 catch (IOException e) { NRODClient.printThrowable(e, "RateMonitor"); }

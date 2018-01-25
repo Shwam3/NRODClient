@@ -52,7 +52,7 @@ public class NRODClient
 
     public static final boolean verbose = false;
     
-    public static final File EASM_STORAGE_DIR = new File(System.getProperty("user.home", "C:") + File.separator + ".easigmap");
+    public static final File EASM_STORAGE_DIR = new File(System.getProperty("user.home", "C:") + File.separator + ".easigmap2");
     public static JSONObject config = new JSONObject();
 
     public static SimpleDateFormat sdfTime          = new SimpleDateFormat("HH:mm:ss");
@@ -75,10 +75,10 @@ public class NRODClient
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) { printThrowable(e, "Look & Feel"); }
 
-        Date logDate = new Date();
-        logFile = new File(EASM_STORAGE_DIR, "Logs" + File.separator + "NRODClient" + File.separator + sdfDate.format(logDate).replace("/", "-") + ".log");
+        String logDate = sdfDate.format(new Date());
+        logFile = new File(EASM_STORAGE_DIR, "Logs" + File.separator + "NRODClient" + File.separator + logDate.replace("/", "-") + ".log");
         logFile.getParentFile().mkdirs();
-        lastLogDate = sdfDate.format(logDate);
+        lastLogDate = logDate;
 
         try
         {

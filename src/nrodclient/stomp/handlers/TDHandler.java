@@ -22,10 +22,9 @@ public class TDHandler implements NRODListener
 {
     private static PrintWriter logOldStream;
     private static File        logOldFile;
-    private static String      lastLogOldDate = "";
     private static PrintWriter logNewStream;
     private static File        logNewFile;
-    private static String      lastLogNewDate = "";
+    private static String      lastLogDate = "";
     private        long        lastMessageTime = 0;
     
     private static List<String> areaFilters;
@@ -33,18 +32,15 @@ public class TDHandler implements NRODListener
     private static NRODListener instance = null;
     private TDHandler()
     {
-        Date logDate = new Date(System.currentTimeMillis());
-        logOldFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TDOld" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+        lastLogDate = NRODClient.sdfDate.format(new Date());
+        
+        logOldFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TDOld" + File.separator + lastLogDate.replace("/", "-") + ".log");
         logOldFile.getParentFile().mkdirs();
-        lastLogOldDate = NRODClient.sdfDate.format(logDate);
-
         try { logOldStream = new PrintWriter(new BufferedWriter(new FileWriter(logOldFile, true)), true); }
         catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
         
-        logNewFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+        logNewFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + lastLogDate.replace("/", "-") + ".log");
         logNewFile.getParentFile().mkdirs();
-        lastLogNewDate = NRODClient.sdfDate.format(logDate);
-
         try { logNewStream = new PrintWriter(new BufferedWriter(new FileWriter(logNewFile, true)), true); }
         catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
         
@@ -334,69 +330,47 @@ public class TDHandler implements NRODListener
         if (NRODClient.verbose)
         {
             //if (toErr)
-            //    NRODClient.printErr("[TD] ".concat(message));
+            //    NRODClient.printErr("[TD] " + message);
             //else
-                NRODClient.printOut("[TD] ".concat(message));
+                NRODClient.printOut("[TD] " + message);
         }
 
-        if (toNew)
+        String newDate = NRODClient.sdfDate.format(new Date());
+        if (!lastLogDate.equals(newDate))
         {
-            if (!lastLogNewDate.equals(NRODClient.sdfDate.format(new Date())))
+            logNewStream.close();
+            logOldStream.close();
+
+            lastLogDate = newDate;
+
+            logNewFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + newDate.replace("/", "-") + ".log");
+            logNewFile.getParentFile().mkdirs();
+            try
             {
-                logNewStream.close();
-
-                Date logDate = new Date();
-                lastLogNewDate = NRODClient.sdfDate.format(logDate);
-
-                logNewFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TDOld" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
-                logNewFile.getParentFile().mkdirs();
-
-                try
-                {
-                    logNewFile.createNewFile();
-                    logNewStream = new PrintWriter(new BufferedWriter(new FileWriter(logNewFile, true)), true);
-                }
-                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
-
-                File fileReplaySave = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "ReplaySaves" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".json");
-                fileReplaySave.getParentFile().mkdirs();
-                try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileReplaySave)))
-                {
-                    bw.write(new JSONObject().put("TDData", DATA_MAP).toString());
-                }
-                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+                logNewFile.createNewFile();
+                logNewStream = new PrintWriter(new BufferedWriter(new FileWriter(logNewFile, true)), true);
             }
-            logNewStream.println("[".concat(NRODClient.sdfDateTime.format(new Date(timestamp))).concat("] ").concat(message));
-        }
-        else
-        {
-            if (!lastLogOldDate.equals(NRODClient.sdfDate.format(new Date())))
+            catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+
+            logOldFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TDOld" + File.separator + newDate.replace("/", "-") + ".log");
+            logOldFile.getParentFile().mkdirs();
+            try
             {
-                logOldStream.close();
-
-                Date logDate = new Date();
-                lastLogOldDate = NRODClient.sdfDate.format(logDate);
-
-                logOldFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "TD" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
-                logOldFile.getParentFile().mkdirs();
-
-                try
-                {
-                    logOldFile.createNewFile();
-                    logOldStream = new PrintWriter(new BufferedWriter(new FileWriter(logOldFile, true)), true);
-                }
-                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
-
-                File fileReplaySave = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "ReplaySaves" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".json");
-                fileReplaySave.getParentFile().mkdirs();
-                try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileReplaySave)))
-                {
-                    bw.write(new JSONObject().put("TDData", DATA_MAP).toString());
-                }
-                catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+                logOldFile.createNewFile();
+                logOldStream = new PrintWriter(new BufferedWriter(new FileWriter(logOldFile, true)), true);
             }
-            logOldStream.println("[".concat(NRODClient.sdfDateTime.format(new Date(timestamp))).concat("] ").concat(message));
+            catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
+
+            File fileReplaySave = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "ReplaySaves" + File.separator + newDate.replace("/", "-") + ".json");
+            fileReplaySave.getParentFile().mkdirs();
+            try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileReplaySave)))
+            {
+                new JSONObject().put("TDData", DATA_MAP).write(bw);
+            }
+            catch (IOException e) { NRODClient.printThrowable(e, "TD"); }
         }
+        
+        (toNew ? logNewStream : logOldStream).println("[" + NRODClient.sdfDateTime.format(new Date(timestamp)) + "] " + message);
 
     }
 }

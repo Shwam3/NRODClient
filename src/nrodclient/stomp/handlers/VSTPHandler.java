@@ -22,10 +22,9 @@ public class VSTPHandler implements NRODListener
     private static NRODListener instance = null;
     private VSTPHandler()
     {
-        Date logDate = new Date(System.currentTimeMillis());
-        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "VSTP" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+        lastLogDate = NRODClient.sdfDate.format(new Date());
+        logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "VSTP" + File.separator + lastLogDate.replace("/", "-") + ".log");
         logFile.getParentFile().mkdirs();
-        lastLogDate = NRODClient.sdfDate.format(logDate);
 
         try { logStream = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)), true); }
         catch (IOException e) { NRODClient.printThrowable(e, "VSTP"); }
@@ -66,14 +65,14 @@ public class VSTPHandler implements NRODListener
                 NRODClient.printOut("[VSTP] " + message);
         }
         
-        if (!lastLogDate.equals(NRODClient.sdfDate.format(new Date())))
+        String newDate = NRODClient.sdfDate.format(new Date());
+        if (!lastLogDate.equals(newDate))
         {
             logStream.close();
 
-            Date logDate = new Date();
-            lastLogDate = NRODClient.sdfDate.format(logDate);
+            lastLogDate = newDate;
 
-            logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "VSTP" + File.separator + NRODClient.sdfDate.format(logDate).replace("/", "-") + ".log");
+            logFile = new File(NRODClient.EASM_STORAGE_DIR, "Logs" + File.separator + "VSTP" + File.separator + newDate.replace("/", "-") + ".log");
             logFile.getParentFile().mkdirs();
 
             try
@@ -83,6 +82,6 @@ public class VSTPHandler implements NRODListener
             }
             catch (IOException e) { NRODClient.printThrowable(e, "VSTP"); }
         }
-        logStream.println("[".concat(NRODClient.sdfDateTime.format(new Date(timestamp))).concat("] ").concat(message));
+        logStream.println("[" + NRODClient.sdfDateTime.format(new Date(timestamp)) + "] " + message);
     }
 }

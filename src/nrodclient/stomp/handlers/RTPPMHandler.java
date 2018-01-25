@@ -624,9 +624,16 @@ public class RTPPMHandler implements NRODListener
                 try
                 {
                     NRODClient.reloadConfig();
-                    JSch jsch = new JSch();
 
-                    try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); BufferedInputStream is = new BufferedInputStream(new FileInputStream(new File(NRODClient.EASM_STORAGE_DIR, "key.openssh"))))
+                    File keyFile = new File(NRODClient.EASM_STORAGE_DIR, "key.openssh");
+                    if (!keyFile.exists())
+                    {
+                        printRTPPM("No SSH key present", true);
+                        return;
+                    }
+                    
+                    JSch jsch = new JSch();
+                    try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); BufferedInputStream is = new BufferedInputStream(new FileInputStream(keyFile)))
                     {
                         byte[] buff = new byte[8192];
                         int read;
@@ -662,11 +669,11 @@ public class RTPPMHandler implements NRODListener
         if (NRODClient.verbose)
         {
             if (toErr)
-                NRODClient.printErr("[RTPPM] ".concat(message));
+                NRODClient.printErr("[RTPPM] " + message);
             else
-                NRODClient.printOut("[RTPPM] ".concat(message));
+                NRODClient.printOut("[RTPPM] " + message);
         }
 
-        logStream.println("[".concat(NRODClient.sdfDateTime.format(new Date())).concat("] ").concat(toErr ? "!!!> " : "").concat(message).concat(toErr ? " <!!!" : ""));
+        logStream.println("[" + NRODClient.sdfDateTime.format(new Date()) + "] " + (toErr ? "!!!> " : "") + message + (toErr ? " <!!!" : ""));
     }
 }
