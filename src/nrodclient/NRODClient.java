@@ -52,7 +52,7 @@ public class NRODClient
 
     public static final boolean verbose = false;
     
-    public static final File EASM_STORAGE_DIR = new File(System.getProperty("user.home", "C:") + File.separator + ".easigmap2");
+    public static final File EASM_STORAGE_DIR = new File(System.getProperty("user.home", "C:") + File.separator + ".easigmap");
     public static JSONObject config = new JSONObject();
 
     public static SimpleDateFormat sdfTime          = new SimpleDateFormat("HH:mm:ss");
