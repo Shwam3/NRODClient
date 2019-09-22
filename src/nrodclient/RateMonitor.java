@@ -1,4 +1,4 @@
-package nrodclient.stomp.handlers;
+package nrodclient;
 
 import java.io.BufferedWriter;
 import java.io.File;

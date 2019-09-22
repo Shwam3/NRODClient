@@ -38,9 +38,9 @@ import javax.swing.JOptionPane;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import nrodclient.stomp.StompConnectionHandler;
-import nrodclient.stomp.handlers.MVTHandler;
 import nrodclient.stomp.handlers.RTPPMHandler;
 import nrodclient.stomp.handlers.TDHandler;
+import nrodclient.stomp.handlers.TRUSTHandler;
 import nrodclient.stomp.handlers.TSRHandler;
 import nrodclient.stomp.handlers.VSTPHandler;
 import org.json.JSONException;
@@ -128,7 +128,7 @@ public class NRODClient
         if (StompConnectionHandler.wrappedConnect())
             StompConnectionHandler.printStomp("Initialised and working", false);
         else
-            StompConnectionHandler.printStomp("Unble to start", true);
+            StompConnectionHandler.printStomp("Unable to start", true);
 
         Timer sleepTimer = new Timer("sleepTimer", true);
         sleepTimer.scheduleAtFixedRate(new TimerTask()
@@ -252,39 +252,39 @@ public class NRODClient
                 MenuItem itemOpenLogFolder = new MenuItem("Open Log File Folder");
                 MenuItem itemStatus        = new MenuItem("Status...");
                 MenuItem itemData          = new MenuItem("View Data...");
-                MenuItem itemRTPPMUpload   = new MenuItem("Upload RTPPM file");
+                //MenuItem itemRTPPMUpload   = new MenuItem("Upload RTPPM file");
                 MenuItem itemReconnect     = new MenuItem("Stomp Reconnect");
 
                 Menu menuSubscriptions                  = new Menu("Subscriptions");
                 CheckboxMenuItem itemSubscriptionsRTPPM = new CheckboxMenuItem("RTPPM", StompConnectionHandler.isSubscribedRTPPM());
-                CheckboxMenuItem itemSubscriptionsMVT   = new CheckboxMenuItem("MVT",   StompConnectionHandler.isSubscribedMVT());
+                CheckboxMenuItem itemSubscriptionsTRUST = new CheckboxMenuItem("TRUST", StompConnectionHandler.isSubscribedTRUST());
                 CheckboxMenuItem itemSubscriptionsVSTP  = new CheckboxMenuItem("VSTP",  StompConnectionHandler.isSubscribedVSTP());
                 CheckboxMenuItem itemSubscriptionsTSR   = new CheckboxMenuItem("TSR",   StompConnectionHandler.isSubscribedTSR());
 
                 itemStatus.addActionListener((ActionEvent e) ->
                 {
                     NRODClient.updatePopupMenu();
-                    
+
                     StringBuilder statusMsg = new StringBuilder();
                     statusMsg.append("\nStomp:");
                     statusMsg.append("\n  Connection: ").append(StompConnectionHandler.isConnected() ? "Connected" : "Disconnected").append(StompConnectionHandler.isTimedOut() ? " (timed out)" : "");
                     statusMsg.append("\n  Timeout: ").append((System.currentTimeMillis() - StompConnectionHandler.lastMessageTimeGeneral) / 1000f).append("s");
                     statusMsg.append("\n  Subscriptions:");
                     statusMsg.append("\n    TD: ").append(String.format("%s - %.2fs", StompConnectionHandler.isSubscribedTD() ? "Yes" : "No", TDHandler.getInstance().getTimeout() / 1000f));
-                    statusMsg.append("\n    MVT: ").append(String.format("%s - %.2fs", StompConnectionHandler.isSubscribedMVT() ? "Yes" : "No", MVTHandler.getInstance().getTimeout() / 1000f));
+                    statusMsg.append("\n    TRUST: ").append(String.format("%s - %.2fs", StompConnectionHandler.isSubscribedTRUST() ? "Yes" : "No", TRUSTHandler.getInstance().getTimeout() / 1000f));
                     statusMsg.append("\n    RTPPM: ").append(String.format("%s - %.2fs", StompConnectionHandler.isSubscribedRTPPM() ? "Yes" : "No", RTPPMHandler.getInstance().getTimeout() / 1000f));
                     statusMsg.append("\n    VSTP: ").append(String.format("%s - %.2fs", StompConnectionHandler.isSubscribedVSTP() ? "Yes" : "No", VSTPHandler.getInstance().getTimeout() / 1000f));
                     statusMsg.append("\n    TSR: ").append(String.format("%s - %.2fs", StompConnectionHandler.isSubscribedTSR() ? "Yes" : "No", TSRHandler.getInstance().getTimeout() / 1000f));
                     statusMsg.append("\nLogfile: \"").append(NRODClient.logFile.getName()).append("\"");
                     statusMsg.append("\nStarted: ").append(NRODClient.sdfDateTime.format(ManagementFactory.getRuntimeMXBean().getStartTime()));
-                    
+
                     JOptionPane.showMessageDialog(null, statusMsg.toString(), "NRODClient - Status", JOptionPane.INFORMATION_MESSAGE);
                 });
                 itemData.addActionListener(e -> NRODClient.guiData.setVisible(true));
-                itemRTPPMUpload.addActionListener((ActionEvent e) ->
-                {
-                    RTPPMHandler.uploadHTML();
-                });
+                //itemRTPPMUpload.addActionListener((ActionEvent e) ->
+                //{
+                //    RTPPMHandler.uploadHTML();
+                //});
                 itemReconnect.addActionListener((ActionEvent e) ->
                 {
                     if (JOptionPane.showConfirmDialog(null, "Are you sure you wish to reconnect?", "Confirmation", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
@@ -294,18 +294,18 @@ public class NRODClient
                     }
                 });
                 itemSubscriptionsRTPPM.addItemListener((ItemEvent e) -> { StompConnectionHandler.toggleRTPPM(); });
-                itemSubscriptionsMVT  .addItemListener((ItemEvent e) -> { StompConnectionHandler.toggleMVT(); });
+                itemSubscriptionsTRUST.addItemListener((ItemEvent e) -> { StompConnectionHandler.toggleTRUST(); });
                 itemSubscriptionsVSTP .addItemListener((ItemEvent e) -> { StompConnectionHandler.toggleVSTP(); });
                 itemSubscriptionsTSR  .addItemListener((ItemEvent e) -> { StompConnectionHandler.toggleTSR(); });
                 itemOpenLog.addActionListener((ActionEvent evt) ->
                 {
                     try { Desktop.getDesktop().open(NRODClient.logFile); }
-                    catch (IOException e) {}
+                    catch (IOException ignored) {}
                 });
                 itemOpenLogFolder.addActionListener((ActionEvent evt) ->
                 {
                     try { Runtime.getRuntime().exec("explorer.exe /select," + NRODClient.logFile); }
-                    catch (IOException e) {}
+                    catch (IOException ignored) {}
                 });
                 itemExit.addActionListener((ActionEvent e) ->
                 {
@@ -317,13 +317,13 @@ public class NRODClient
                 });
 
                 menuSubscriptions.add(itemSubscriptionsRTPPM);
-                menuSubscriptions.add(itemSubscriptionsMVT);
+                menuSubscriptions.add(itemSubscriptionsTRUST);
                 menuSubscriptions.add(itemSubscriptionsVSTP);
                 menuSubscriptions.add(itemSubscriptionsTSR);
 
                 menu.add(itemStatus);
                 menu.add(itemData);
-                menu.add(itemRTPPMUpload);
+                //menu.add(itemRTPPMUpload);
                 menu.add(itemReconnect);
                 menu.add(menuSubscriptions);
                 menu.addSeparator();
@@ -364,14 +364,8 @@ public class NRODClient
             String line;
             while ((line = br.readLine()) != null)
                 sb.append(line);
-            
-            JSONObject obj = new JSONObject(sb.toString());
-            config = obj;
+
+            config = new JSONObject(sb.toString());
         } catch (IOException | JSONException e) { NRODClient.printThrowable(e, "Config"); }
-        
-        List<String> filter = new ArrayList<>();
-        config.getJSONArray("TD_Area_Filter").forEach(e -> filter.add((String) e));
-        filter.sort(null);
-        TDHandler.setAreaFilter(filter);
     }
 }

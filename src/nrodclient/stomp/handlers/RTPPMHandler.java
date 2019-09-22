@@ -75,35 +75,34 @@ public class RTPPMHandler implements NRODListener
         {
             try (BufferedReader br = new BufferedReader(new FileReader(saveFile)))
             {
-                String jsonString = "";
+                StringBuilder jsonString = new StringBuilder();
 
                 String line;
                 while ((line = br.readLine()) != null)
-                    jsonString += line;
+                    jsonString.append(line);
 
-                JSONObject json = new JSONObject(jsonString);
+                JSONObject json = new JSONObject(jsonString.toString());
 
                 readData(json.getJSONObject("RTPPMData"));
 
                 List<String> operatorNames = new ArrayList<>(operators.keySet());
-                Collections.sort(operatorNames, String.CASE_INSENSITIVE_ORDER);
+                operatorNames.sort(String.CASE_INSENSITIVE_ORDER);
                 operatorNames.stream().forEachOrdered((operator) -> operators.get(operator).printPrettyString());
 
                 printRTPPM("Incident Messages:", false);
                 for (String incidentMessage : json.optString("IncidentMessages").split("\\n"))
                     printRTPPM("  " + incidentMessage.trim(), false);
             }
-            catch (IOException e) { NRODClient.printThrowable(e, "RTPPM"); }
             catch (Exception e) { NRODClient.printThrowable(e, "RTPPM"); }
         }
 
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        int mins = calendar.get(Calendar.MINUTE);
-        calendar.add(Calendar.MINUTE, 5 - (mins % 5));
-        calendar.set(Calendar.SECOND, 30);
-        calendar.set(Calendar.MILLISECOND, 500);
+        //Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        //int mins = calendar.get(Calendar.MINUTE);
+        //calendar.add(Calendar.MINUTE, 5 - (mins % 5));
+        //calendar.set(Calendar.SECOND, 30);
+        //calendar.set(Calendar.MILLISECOND, 500);
 
-        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> uploadHTML(), calendar.getTimeInMillis() - System.currentTimeMillis(), 300000, TimeUnit.MILLISECONDS);
+        //Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> uploadHTML(), calendar.getTimeInMillis() - System.currentTimeMillis(), 300000, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -614,7 +613,7 @@ public class RTPPMHandler implements NRODListener
         }
     }
 
-    public static void uploadHTML()
+    /*public static void uploadHTML()
     {
         try
         {
@@ -659,7 +658,7 @@ public class RTPPMHandler implements NRODListener
             }
         }
         catch (IOException e) { NRODClient.printThrowable(e, "RTPPM"); }
-    }
+    }*/
 
     public long getTimeout() { return System.currentTimeMillis() - lastMessageTime; }
     public long getTimeoutThreshold() { return 180000; }

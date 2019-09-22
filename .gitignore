@@ -61,3 +61,7 @@ $RECYCLE.BIN/
 /build
 /nbproject
 src/nrodclient/resources/daphkey.openssh
+/src/META-INF
+/out
+NRODClient.iml
+/.idea

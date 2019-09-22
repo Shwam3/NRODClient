@@ -14,7 +14,7 @@ import nrodclient.stomp.StompConnectionHandler;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class MVTHandler implements NRODListener
+public class TRUSTHandler implements NRODListener
 {
     private static PrintWriter logStream;
     private static File        logFile;
@@ -23,7 +23,7 @@ public class MVTHandler implements NRODListener
     private final  Map<String, String> da;
 
     private static NRODListener instance = null;
-    private MVTHandler()
+    private TRUSTHandler()
     {
         String logDate = NRODClient.sdfDate.format(new Date());
         lastLogDate = logDate;
@@ -303,7 +303,7 @@ public class MVTHandler implements NRODListener
     public static NRODListener getInstance()
     {
         if (instance == null)
-            instance = new MVTHandler();
+            instance = new TRUSTHandler();
 
         return instance;
     }

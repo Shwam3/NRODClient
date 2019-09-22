@@ -12,10 +12,10 @@ import net.ser1.stomp.Listener;
 import net.ser1.stomp.Version;
 import nrodclient.NRODClient;
 import nrodclient.stomp.handlers.ErrorHandler;
-import nrodclient.stomp.handlers.MVTHandler;
 import nrodclient.stomp.handlers.RTPPMHandler;
-import nrodclient.stomp.handlers.RateMonitor;
+import nrodclient.RateMonitor;
 import nrodclient.stomp.handlers.TDHandler;
+import nrodclient.stomp.handlers.TRUSTHandler;
 import nrodclient.stomp.handlers.TSRHandler;
 import nrodclient.stomp.handlers.VSTPHandler;
 
@@ -31,14 +31,14 @@ public class StompConnectionHandler
     private static String appID = "";
 
     private static boolean subscribedRTPPM = false;
-    private static boolean subscribedMVT   = false;
+    private static boolean subscribedTRUST = false;
     private static boolean subscribedVSTP  = false;
     private static boolean subscribedTSR   = false;
     private static boolean subscribedTD    = false;
 
     private static final Listener rateMonitor  = RateMonitor.getInstance();
     private static final Listener handlerRTPPM = RTPPMHandler.getInstance();
-    private static final Listener handlerMVT   = MVTHandler.getInstance();
+    private static final Listener handlerTRUST = TRUSTHandler.getInstance();
     private static final Listener handlerVSTP  = VSTPHandler.getInstance();
     private static final Listener handlerTSR   = TSRHandler.getInstance();
     private static final Listener handlerTD    = TDHandler.getInstance();
@@ -48,7 +48,7 @@ public class StompConnectionHandler
         printStomp(Version.VERSION, false);
 
         subscribedRTPPM = false;
-        subscribedMVT   = false;
+        subscribedTRUST = false;
         subscribedVSTP  = false;
         subscribedTSR   = false;
         subscribedTD    = false;
@@ -83,7 +83,7 @@ public class StompConnectionHandler
 
         client.addErrorListener(new ErrorHandler());
         toggleRTPPM();
-        toggleMVT();
+        toggleTRUST();
         toggleVSTP();
         toggleTSR();
         toggleTD();
@@ -102,7 +102,7 @@ public class StompConnectionHandler
             client.disconnect();
 
         subscribedRTPPM = false;
-        subscribedMVT   = false;
+        subscribedTRUST = false;
         subscribedVSTP  = false;
         subscribedTSR   = false;
         subscribedTD    = false;
@@ -135,7 +135,7 @@ public class StompConnectionHandler
     {
         long threshold;
 
-        if (subscribedMVT || subscribedTD)
+        if (subscribedTRUST || subscribedTD)
             threshold = 30000;
         else if (subscribedRTPPM)
             threshold = 180000;
@@ -203,23 +203,23 @@ public class StompConnectionHandler
                 {
                     timeoutWait = 10;
 
-                    long timeMVT   = MVTHandler.getInstance().getTimeout();
+                    long timeTRUST = TRUSTHandler.getInstance().getTimeout();
                     long timeRTPPM = RTPPMHandler.getInstance().getTimeout();
                     long timeVSTP  = VSTPHandler.getInstance().getTimeout();
                     long timeTSR   = TSRHandler.getInstance().getTimeout();
                     long timeTD    = TDHandler.getInstance().getTimeout();
-                    boolean timedOutMVT   = timeMVT   >= MVTHandler.getInstance().getTimeoutThreshold();
+                    boolean timedOutTRUST = timeTRUST >= TRUSTHandler.getInstance().getTimeoutThreshold();
                     boolean timedOutRTPPM = timeRTPPM >= RTPPMHandler.getInstance().getTimeoutThreshold();
                     boolean timedOutVSTP  = timeVSTP  >= VSTPHandler.getInstance().getTimeoutThreshold();
                     boolean timedOutTSR   = timeTSR   >= TSRHandler.getInstance().getTimeoutThreshold();
                     boolean timedOutTD    = timeTD    >= TDHandler.getInstance().getTimeoutThreshold();
 
-                    printStomp(String.format("  MVT Timeout:   %02d:%02d:%02d (Threshold: %ss)",
-                                (timeMVT / (1000 * 60 * 60)) % 24,
-                                (timeMVT / (1000 * 60)) % 60,
-                                (timeMVT / 1000) % 60,
-                                (MVTHandler.getInstance().getTimeoutThreshold() / 1000)),
-                            timedOutMVT);
+                    printStomp(String.format("  TRUST Timeout: %02d:%02d:%02d (Threshold: %ss)",
+                                (timeTRUST / (1000 * 60 * 60)) % 24,
+                                (timeTRUST / (1000 * 60)) % 60,
+                                (timeTRUST / 1000) % 60,
+                                (TRUSTHandler.getInstance().getTimeoutThreshold() / 1000)),
+                            timedOutTRUST);
                     printStomp(String.format("  RTPPM Timeout: %02d:%02d:%02d (Threshold: %ss)",
                                 (timeRTPPM / (1000 * 60 * 60)) % 24,
                                 (timeRTPPM / (1000 * 60)) % 60,
@@ -245,13 +245,13 @@ public class StompConnectionHandler
                                 (TDHandler.getInstance().getTimeoutThreshold() / 1000)),
                             timedOutTD);
 
-                    if (timedOutMVT || timedOutRTPPM || timedOutVSTP || timedOutVSTP || timedOutTD)
+                    if (timedOutTRUST || timedOutRTPPM || timedOutVSTP || timedOutTSR || timedOutTD)
                     {
-                        if (timeMVT >= MVTHandler.getInstance().getTimeoutThreshold()*2 ||
-                                timeRTPPM >= RTPPMHandler.getInstance().getTimeoutThreshold()*2 ||
-                                timeVSTP  >= VSTPHandler.getInstance().getTimeoutThreshold()*2 ||
-                                timeTSR   >= TSRHandler.getInstance().getTimeoutThreshold()*2 ||
-                                timeTD    >= TDHandler.getInstance().getTimeoutThreshold()*2)
+                        if (timeTRUST >= TRUSTHandler.getInstance().getTimeoutThreshold()*1.5 ||
+                            timeRTPPM >= RTPPMHandler.getInstance().getTimeoutThreshold()*1.5 ||
+                            timeVSTP  >= VSTPHandler.getInstance().getTimeoutThreshold()*1.5 ||
+                            timeTSR   >= TSRHandler.getInstance().getTimeoutThreshold()*1.5 ||
+                            timeTD    >= TDHandler.getInstance().getTimeoutThreshold()*1.5)
                         {
                             if (client != null)
                                 disconnect();
@@ -261,14 +261,14 @@ public class StompConnectionHandler
                     }
                     else
                     {
-                        if (timedOutMVT)
+                        if (timedOutTRUST)
                         {
-                            toggleMVT();
+                            toggleTRUST();
 
                             try { Thread.sleep(50); }
                             catch(InterruptedException e) {}
 
-                            toggleMVT();
+                            toggleTRUST();
                         }
                         if (timedOutRTPPM)
                         {
@@ -308,7 +308,7 @@ public class StompConnectionHandler
                         }
                     }
 
-                    if (!timedOutMVT && !timedOutRTPPM && !timedOutVSTP && !timedOutTSR)
+                    if (!timedOutTRUST && !timedOutRTPPM && !timedOutVSTP && !timedOutTSR)
                         printStomp("No problems", false);
                 }
             }
@@ -343,7 +343,7 @@ public class StompConnectionHandler
         if (subscribedRTPPM)
         {
             client.unsubscribe("RTPPM");
-            StompConnectionHandler.printStomp("Unsubscribed from \"/topic/RTPPM_ALL\" (ID: \"" + appID + "-RTPPM\")", false);
+            printStomp("Unsubscribed from \"/topic/RTPPM_ALL\" (ID: \"" + appID + "-RTPPM\")", false);
             subscribedRTPPM = false;
         }
         else
@@ -354,19 +354,19 @@ public class StompConnectionHandler
         }
         NRODClient.updatePopupMenu();
     }
-    public static void toggleMVT()
+    public static void toggleTRUST()
     {
-        if (subscribedMVT)
+        if (subscribedTRUST)
         {
-            client.unsubscribe("MVT");
-            StompConnectionHandler.printStomp("Unsubscribed from \"/topic/TRAIN_MVT_ALL_TOC\" (ID: \"" + appID + "-MVT\")", false);
-            subscribedMVT = false;
+            client.unsubscribe("TRUST");
+            printStomp("Unsubscribed from \"/topic/TRAIN_MVT_ALL_TOC\" (ID: \"" + appID + "-TRUST\")", false);
+            subscribedTRUST = false;
         }
         else
         {
-            client.subscribe("/topic/TRAIN_MVT_ALL_TOC", "MVT", handlerMVT);
+            client.subscribe("/topic/TRAIN_MVT_ALL_TOC", "TRUST", handlerTRUST);
             client.addListener("/topic/TRAIN_MVT_ALL_TOC", rateMonitor);
-            subscribedMVT = true;
+            subscribedTRUST = true;
         }
         NRODClient.updatePopupMenu();
     }
@@ -375,7 +375,7 @@ public class StompConnectionHandler
         if (subscribedVSTP)
         {
             client.unsubscribe("VSTP");
-            StompConnectionHandler.printStomp("Unsubscribed from \"/topic/VSTP_ALL\" (ID: \"" + appID + "-VSTP\")", false);
+            printStomp("Unsubscribed from \"/topic/VSTP_ALL\" (ID: \"" + appID + "-VSTP\")", false);
             subscribedVSTP = false;
         }
         else
@@ -391,7 +391,7 @@ public class StompConnectionHandler
         if (subscribedTSR)
         {
             client.unsubscribe("TSR");
-            StompConnectionHandler.printStomp("Unsubscribed from \"/topic/TSR_ALL_ROUTE\" (ID: \"" + appID + "-TSR\")", false);
+            printStomp("Unsubscribed from \"/topic/TSR_ALL_ROUTE\" (ID: \"" + appID + "-TSR\")", false);
             subscribedTSR = false;
         }
         else
@@ -407,7 +407,7 @@ public class StompConnectionHandler
         if (subscribedTD)
         {
             client.unsubscribe("TD");
-            StompConnectionHandler.printStomp("Unsubscribed from \"/topic/TD_ALL_SIG_AREA\" (ID: \"" + appID + "-TD\")", false);
+            printStomp("Unsubscribed from \"/topic/TD_ALL_SIG_AREA\" (ID: \"" + appID + "-TD\")", false);
             subscribedTD = false;
         }
         else
@@ -420,7 +420,7 @@ public class StompConnectionHandler
     }
 
     public static boolean isSubscribedRTPPM() { return subscribedRTPPM; }
-    public static boolean isSubscribedMVT() { return subscribedMVT; }
+    public static boolean isSubscribedTRUST() { return subscribedTRUST; }
     public static boolean isSubscribedVSTP() { return subscribedVSTP; }
     public static boolean isSubscribedTSR() { return subscribedTSR; }
     public static boolean isSubscribedTD() { return subscribedTD; }
